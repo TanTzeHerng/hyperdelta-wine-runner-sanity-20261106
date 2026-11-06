@@ -1,0 +1,33 @@
+name: Confirm Wine and Windows Python on public Ubuntu runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wine_smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      WINEPREFIX: /tmp/hyperdelta-wine-smoke
+      WINEARCH: win64
+      WINEDEBUG: -all
+    steps:
+      - name: Install Wine
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends wine wine64 xvfb unzip
+          wine --version
+      - name: Run real Windows Python under Wine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/python-win"
+          curl --fail -L --retry 3 https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip -o "$RUNNER_TEMP/python.zip"
+          unzip -q "$RUNNER_TEMP/python.zip" -d "$RUNNER_TEMP/python-win"
+          timeout 3m xvfb-run -a wineboot -u
+          timeout 3m xvfb-run -a wine "$RUNNER_TEMP/python-win/python.exe" -c "import sys,ctypes,platform;print('Windows Python OK:',sys.version);print('Platform:',platform.platform());print('Kernel32 available:',bool(ctypes.windll.kernel32))"
